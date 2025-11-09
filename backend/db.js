@@ -50,9 +50,7 @@ async function ensureColumn(table, col, typeSql, backfillSql = null) {
   const exists = await hasColumn(table, col);
   if (!exists) {
     await run(`ALTER TABLE ${table} ADD COLUMN ${col} ${typeSql};`);
-    if (backfillSql) {
-      await run(backfillSql);
-    }
+    if (backfillSql) await run(backfillSql);
   }
 }
 
@@ -61,9 +59,7 @@ async function ensureIndex(name, sqlCreateIfNotExists) {
     `SELECT name FROM sqlite_master WHERE type IN ('index','trigger') AND name=?`,
     [name]
   );
-  if (rows.length === 0) {
-    await run(sqlCreateIfNotExists);
-  }
+  if (rows.length === 0) await run(sqlCreateIfNotExists);
 }
 
 // ---------- migrazioni ----------
@@ -77,7 +73,7 @@ export async function migrate() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT UNIQUE,
         username TEXT UNIQUE,
-        password TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'user',
         first_name TEXT,
         last_name TEXT,
@@ -110,7 +106,19 @@ export async function migrate() {
        )
        WHERE username IS NULL;`
     );
+
+    // Se in DB vecchi c'era "password" in chiaro, la teniamo (senza forzarla).
     await ensureColumn('users', 'password',     'TEXT');
+
+    // Nuova colonna corretta per l'hash
+    await ensureColumn(
+      'users',
+      'password_hash',
+      'TEXT',
+      // backfill: se esiste password (vecchia) e manca password_hash, copiamo.
+      `UPDATE users SET password_hash = password WHERE password_hash IS NULL AND password IS NOT NULL;`
+    );
+
     await ensureColumn('users', 'role',         "TEXT DEFAULT 'user'",
       `UPDATE users SET role = COALESCE(role,'user') WHERE role IS NULL;`
     );
@@ -129,7 +137,7 @@ export async function migrate() {
     );
 
     await ensureColumn('users', 'dob',          'TEXT');
-    await ensureColumn('users', 'city',         'TEXT');     // <-- AGGIUNTA
+    await ensureColumn('users', 'city',         'TEXT');
     await ensureColumn('users', 'phone',        'TEXT');
     await ensureColumn('users', 'points',       'INTEGER DEFAULT 0',
       `UPDATE users SET points = 0 WHERE points IS NULL;`
