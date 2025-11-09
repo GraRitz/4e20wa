@@ -1,63 +1,47 @@
-import { useState } from 'react';
-import { api } from '../api';
-import { useAuth } from '../auth';
+// frontend/src/pages/Register.jsx
+import React, { useState } from 'react';
+import { apiPostRegister } from '../api'; // aggiorna il path se il file è altrove
 
 export default function Register() {
-  const { login } = useAuth();
-  const [form, setForm] = useState({
-    username: '', first_name: '', last_name: '', email: '', dob: '', city: '', password: ''
-  });
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [ok, setOk] = useState('');
 
-  function upd(k, v){ setForm(s => ({...s, [k]: v})); }
-
-  async function submit(e){
-    e.preventDefault(); setErr('');
+  async function onSubmit(e) {
+    e.preventDefault();
+    setLoading(true); setErr(''); setOk('');
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      // Assicurati che gli <input> abbiano questi name:
+      name: form.get('name') || form.get('username') || '',
+      email: form.get('email') || '',
+      password: form.get('password') || '',
+    };
     try {
-      await api.register(form);
-      await login(form.username, form.password); // auto-login
-      window.location.hash = '#/';               // torna alla Home
-    } catch(e){
-      setErr(e.message);
+      await apiPostRegister(payload);
+      setOk('Registrazione completata! Ora puoi accedere.');
+      // opzionale: redirect dopo una pausa
+      // setTimeout(() => window.location.assign('/login'), 800);
+    } catch (e) {
+      setErr(String(e.message || e));
+    } finally {
+      setLoading(false);
     }
   }
 
-  const go = (hash) => () => { window.location.hash = hash; };
-
   return (
-    <div className="page">
-      <form className="card form" onSubmit={submit}>
-        <h2 style={{ marginBottom: 10 }}>Registrati</h2>
-
-        <div className="field"><label>Username</label>
-          <input value={form.username} onChange={e=>upd('username', e.target.value)} required />
-        </div>
-        <div className="field"><label>Nome</label>
-          <input value={form.first_name} onChange={e=>upd('first_name', e.target.value)} required />
-        </div>
-        <div className="field"><label>Cognome</label>
-          <input value={form.last_name} onChange={e=>upd('last_name', e.target.value)} required />
-        </div>
-        <div className="field"><label>Email</label>
-          <input type="email" value={form.email} onChange={e=>upd('email', e.target.value)} required />
-        </div>
-        <div className="field"><label>Data di nascita</label>
-          <input type="date" value={form.dob} onChange={e=>upd('dob', e.target.value)} required />
-        </div>
-        <div className="field"><label>Città</label>
-          <input value={form.city} onChange={e=>upd('city', e.target.value)} required />
-        </div>
-        <div className="field"><label>Password</label>
-          <input type="password" value={form.password} onChange={e=>upd('password', e.target.value)} required />
-        </div>
-
-        {err && <div style={{ color: 'crimson', marginTop: 6 }}>{err}</div>}
-
-        <div className="form-actions">
-          <button type="button" className="btn-ghost" onClick={go('#/')}>← Home</button>
-          <button type="submit" className="btn">Crea account</button>
-        </div>
+    <main className="p-6 max-w-md mx-auto">
+      <h1 className="text-2xl mb-4">Registrati</h1>
+      <form onSubmit={onSubmit} className="grid gap-3">
+        <input name="name" placeholder="Nome" className="border p-2 rounded" required />
+        <input name="email" type="email" placeholder="Email" className="border p-2 rounded" required />
+        <input name="password" type="password" placeholder="Password" className="border p-2 rounded" required />
+        {err && <p className="text-red-500" role="alert">{err}</p>}
+        {ok && <p className="text-green-600">{ok}</p>}
+        <button type="submit" disabled={loading} className="p-2 rounded border">
+          {loading ? 'Invio...' : 'Registrati'}
+        </button>
       </form>
-    </div>
+    </main>
   );
 }

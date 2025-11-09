@@ -1,44 +1,41 @@
-import { useState } from 'react';
-import { useAuth } from '../auth';
+// frontend/src/pages/Login.jsx
+import React, { useState } from 'react';
+import { apiPostLogin } from '../api'; // aggiorna il path se il file è altrove
 
 export default function Login() {
-  const { login } = useAuth();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
 
-  async function submit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
+    setLoading(true); setErr('');
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      email: form.get('email') || '',
+      password: form.get('password') || '',
+    };
     try {
-      setErr('');
-      await login(username, password);
-      window.location.hash = '#/'; // torna alla Home
+      await apiPostLogin(payload);
+      // redirect alla homepage o dashboard
+      window.location.assign('/');
     } catch (e) {
-      setErr(e.message);
+      setErr(String(e.message || e));
+    } finally {
+      setLoading(false);
     }
   }
 
-  const go = (hash) => () => { window.location.hash = hash; };
-
   return (
-    <div className="page">
-      <form className="card form" onSubmit={submit}>
-        <h2 style={{ marginBottom: 10 }}>Accedi</h2>
-        <div className="field">
-          <label>Username</label>
-          <input value={username} onChange={e=>setUsername(e.target.value)} required />
-        </div>
-        <div className="field">
-          <label>Password</label>
-          <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required />
-        </div>
-        {err && <div style={{ color: 'crimson', marginTop: 6 }}>{err}</div>}
-
-        <div className="form-actions">
-          <button type="button" className="btn-ghost" onClick={go('#/')}>← Home</button>
-          <button type="submit" className="btn">Entra</button>
-        </div>
+    <main className="p-6 max-w-md mx-auto">
+      <h1 className="text-2xl mb-4">Accedi</h1>
+      <form onSubmit={onSubmit} className="grid gap-3">
+        <input name="email" type="email" placeholder="Email" className="border p-2 rounded" required />
+        <input name="password" type="password" placeholder="Password" className="border p-2 rounded" required />
+        {err && <p className="text-red-500" role="alert">{err}</p>}
+        <button type="submit" disabled={loading} className="p-2 rounded border">
+          {loading ? 'Accesso...' : 'Accedi'}
+        </button>
       </form>
-    </div>
+    </main>
   );
 }
