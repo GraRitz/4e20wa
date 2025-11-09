@@ -1,31 +1,53 @@
+// backend/create_master.js
+import sqlite3 from 'sqlite3';
 import bcrypt from 'bcrypt';
-import Database from 'better-sqlite3';
-import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const db = new Database(process.env.DATABASE_FILE || './data.sqlite');
+// Percorso del DB (usa la variabile d'ambiente se esiste)
+const defaultPath = path.join(__dirname, 'data.sqlite');
+const dbFile = process.env.DB_FILE || defaultPath;
 
-const username = '4e20';
-const password = 'master'; // <-- puoi cambiare la password qui
-const email = 'master@example.com';
+sqlite3.verbose();
+const db = new sqlite3.Database(dbFile);
 
-const passHash = await bcrypt.hash(password, 10);
+const email = process.argv[2];
+const password = process.argv[3];
 
-db.prepare(
-  `INSERT INTO users 
-   (username, first_name, last_name, email, dob, city, password_hash, role, qr_token, points) 
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
-).run(
-  username,
-  'Master',
-  'Admin',
-  email,
-  '1990-01-01',
-  'Roma',
-  passHash,
-  'master',
-  'qr_mastertoken'
-);
+if (!email || !password) {
+  console.error('Uso corretto: node create_master.js <email> <password>');
+  process.exit(1);
+}
 
-console.log(`Utente master creato:\n  username: ${username}\n  password: ${password}`);
+(async () => {
+  const hashed = await bcrypt.hash(password, 10);
+
+  db.serialize(() => {
+    db.run(
+      `CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE,
+        password TEXT,
+        role TEXT
+      )`
+    );
+
+    const stmt = db.prepare(
+      'INSERT OR REPLACE INTO users (email, password, role) VALUES (?, ?, ?)'
+    );
+
+    stmt.run(email, hashed, 'master', (err) => {
+      if (err) {
+        console.error('Errore durante la creazione utente master:', err.message);
+      } else {
+        console.log(`Utente master creato/aggiornato: ${email}`);
+      }
+      db.close();
+    });
+
+    stmt.finalize();
+  });
+})();
