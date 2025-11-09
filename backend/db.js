@@ -71,7 +71,7 @@ export async function migrate() {
   // USERS
   const usersExists = await hasTable('users');
   if (!usersExists) {
-    // Schema "pulito" per DB nuovi: si possono usare NOT NULL e DEFAULT
+    // Schema “pulito” per DB nuovi
     await run(`
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,6 +83,7 @@ export async function migrate() {
         last_name TEXT,
         display_name TEXT,
         dob TEXT,
+        city TEXT,
         phone TEXT,
         points INTEGER NOT NULL DEFAULT 0,
         card_id TEXT UNIQUE,
@@ -109,7 +110,7 @@ export async function migrate() {
        )
        WHERE username IS NULL;`
     );
-    await ensureColumn('users', 'password',     'TEXT'); // vincolo gestito a livello applicativo
+    await ensureColumn('users', 'password',     'TEXT');
     await ensureColumn('users', 'role',         "TEXT DEFAULT 'user'",
       `UPDATE users SET role = COALESCE(role,'user') WHERE role IS NULL;`
     );
@@ -128,6 +129,7 @@ export async function migrate() {
     );
 
     await ensureColumn('users', 'dob',          'TEXT');
+    await ensureColumn('users', 'city',         'TEXT');     // <-- AGGIUNTA
     await ensureColumn('users', 'phone',        'TEXT');
     await ensureColumn('users', 'points',       'INTEGER DEFAULT 0',
       `UPDATE users SET points = 0 WHERE points IS NULL;`
